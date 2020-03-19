@@ -86,6 +86,7 @@ typedef enum thal_alignment_type {
   thal_end1 = 2,
   thal_end2 = 3,
   thal_hairpin = 4,
+  thal_gapless_tm = 5, // ZZZ TODO
 } thal_alignment_type;
 
 /* Structure for passing arguments to THermodynamic ALignment calculation */

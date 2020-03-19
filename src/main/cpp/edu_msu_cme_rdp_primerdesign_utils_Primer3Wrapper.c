@@ -1,62 +1,87 @@
 #include "edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper.h"
 #include "oligotm.h"
 #include "thal.h"
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
+#include "thal_parameters.h"
 
-JNIEXPORT jdouble JNICALL
-Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcTm(JNIEnv *env,
-        jobject obj, jstring seq, jdouble d, jdouble mv, jdouble dv,
-        jdouble dntp, jint tm_method, jint salt_method) {
-  
-  const char *sequence = (*env)->GetStringUTFChars(env, seq, 0);
-  tm_method_type tm = tm_method;
-  salt_correction_type salt = salt_method;
+static __thread int init_thermo_done = 0;
 
-  double ret = oligotm(sequence, d, mv, dv, dntp, tm, salt);
-  
-  (*env)->ReleaseStringUTFChars(env, seq, sequence);
+static void init_thermo() {
+    if (init_thermo_done) return;
+    thal_results o;
+    thal_parameters thermodynamic_parameters;
+    thal_set_null_parameters(&thermodynamic_parameters);
+    set_default_thal_parameters(&thermodynamic_parameters);
+    get_thermodynamic_values(&thermodynamic_parameters, &o);
+    init_thermo_done = 1;
+}
 
-  return ret; 
+static __thread thal_args a;
+static __thread int init_params_done = 0;
+
+/** If parameters have not been set then set some reasonable defaults. */
+static void init_params() {
+    if (init_params_done) return;
+    a.type = thal_any;
+    a.maxLoop = 30;
+    a.mv = 50;
+    a.dv = 1.5;
+    a.dntp = 0.6;
+    a.dna_conc = 50;
+    a.temp = 37 + 273.15;
+    a.dimer = 1; // this value is ignored
+    init_params_done = 1;
+}
+
+static void set_params(int maxloop, double mv,
+                       double dv, double dntp, double dna_conc, double temp,
+                       int aligntype) {
+    a.type = (thal_alignment_type) aligntype;
+    a.maxLoop = maxloop;
+    a.mv = mv;
+    a.dv = dv;
+    a.dntp = dntp;
+    a.dna_conc = dna_conc;
+    a.temp = temp + 273.15;
+    a.dimer = 1; // this value is ignored
+    init_params_done = 1;
 }
 
 JNIEXPORT jdouble JNICALL
-Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcThermo(JNIEnv *env,
-        jobject obj, jstring seq1, jstring seq2, jint maxloop, jdouble mv,
-        jdouble dv, jdouble dntp, jdouble dna_conc, jdouble temp,
-        jint temponly, jint dimer, jint aligntype) {
+Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcTm(JNIEnv *env,jobject obj, jstring seq) {
+  const char *sequence = (*env)->GetStringUTFChars(env, seq, 0);
+  if (!init_params_done) init_params();
+  double ret = oligotm(sequence, a.dna_conc, a.mv, a.dv, a.dntp, 1, 1);
+  (*env)->ReleaseStringUTFChars(env, seq, sequence);
+  return ret; 
+}
 
-  const char *sequence1 = (*env)->GetStringUTFChars(env,seq1,0);
-  const char *sequence2 = (*env)->GetStringUTFChars(env,seq2,0);
-  
-  thal_args a;
-  
-  a.type = (thal_alignment_type) aligntype;
-  a.maxLoop = maxloop;
-  a.mv = mv;
-  a.dv = dv;
-  a.dntp = dntp;
-  a.dna_conc = dna_conc;
-  a.temp = temp + 273.15;
-  a.dimer = dimer;
+JNIEXPORT void JNICALL
+Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_setParams(JNIEnv *env, jobject obj,
+        jint maxloop, jdouble mv, jdouble dv, jdouble dntp, jdouble dna_conc, jdouble temp,
+        jint aligntype) {
+    set_params(maxloop, mv, dv, dntp, dna_conc, temp, aligntype);
+}
 
-  thal_mode mode = THL_FAST;
-  
-  thal_results o;
+JNIEXPORT jdouble JNICALL
+Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcThermo(JNIEnv *env, jobject obj,
+        jstring seq1, jstring seq2) {
 
-  thal_parameters thermodynamic_parameters;
-  thal_set_null_parameters(&thermodynamic_parameters);
-  set_default_thal_parameters(&thermodynamic_parameters);
-  get_thermodynamic_values(&thermodynamic_parameters, &o);
+    const char *sequence1 = (*env)->GetStringUTFChars(env, seq1, 0);
+    const char *sequence2 = (*env)->GetStringUTFChars(env, seq2, 0);
 
-  // printf("thal(%s,%s,mv %g dv %g dntp %g dna %g temp %g dimer %d type %d,0,&o)\n", sequence1, sequence2, mv, dv, dntp, dna_conc, temp, dimer, aligntype);
-  thal(sequence1, sequence2, &a, mode, &o);
-  
-  (*env)->ReleaseStringUTFChars(env, seq1, sequence1);
-  (*env)->ReleaseStringUTFChars(env, seq2, sequence2);
+    if (!init_params_done) init_params();
 
-  // printf("result: msg %s temp %g end1 %d end2 %d struct %s\n", o.msg, o.temp, o.align_end_1, o.align_end_2, o.sec_struct);
+    thal_results o;
 
-  return o.temp;
+    if (!init_thermo_done) init_thermo();
+
+    // printf("thal(%s,%s,mv %g dv %g dntp %g dna %g temp %g dimer %d type %d,0,&o)\n", sequence1, sequence2, mv, dv, dntp, dna_conc, temp, dimer, aligntype);
+    thal(sequence1, sequence2, &a, THL_FAST, &o);
+
+    (*env)->ReleaseStringUTFChars(env, seq1, sequence1);
+    (*env)->ReleaseStringUTFChars(env, seq2, sequence2);
+
+    // printf("result: msg %s temp %g end1 %d end2 %d struct %s\n", o.msg, o.temp, o.align_end_1, o.align_end_2, o.sec_struct);
+
+    return o.temp;
 }

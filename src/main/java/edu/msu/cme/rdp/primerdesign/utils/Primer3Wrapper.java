@@ -35,10 +35,10 @@ public class Primer3Wrapper {
     private int _max_loop = 30; // smaller is faster
     private int _tm_method = 1; //
     private int _salt_method = 1; //
-
-    private static Object lock = new Object();
+    private int _align_type = 1; // 1 = ANY, 2 = END1, 3 = END2, 4 = HAIRPIN
 
     public Primer3Wrapper() {
+        setParams();
     }
 
     public Primer3Wrapper(double sodiumMv, double magnesDv) {
@@ -46,40 +46,35 @@ public class Primer3Wrapper {
         this._dv = magnesDv;
     }
 
-    private native double calcTm(String seq, double d, double mv, double dv,
-                                 double n, int tm_method, int salt_method);
-
-    private native double calcThermo(String seq1, String seq2, int maxLoop,
-                                     double mv, double dv, double dntp, double dna_conc, double temp,
-                                     int temponly, int dimer, int aligntype);
-
-    public double calcTemp(String seq) {
-        synchronized (lock) {
-            return calcTm(seq, _dna, _mv, _dv, _dntp, _tm_method, _salt_method);
-        }
+    private void setParams() {
+        setParams(_max_loop, _mv, _dv, _dntp, _dna, _temp_c, _align_type);
     }
+
+    private native double calcTm(String seq);
+
+    private native double setParams(int maxLoop, double mv, double dv, double dntp, double dna_conc, double temp, int aligntype);
+
+    private native double calcThermo(String seq1, String seq2);
 
     /** Call Primer3's <code>thal</code> function. */
     public double thal(String seq1, String seq2, String type) {
-        synchronized (lock) {
-            if (type.equals("HAIRPIN")) {
-                return calcThermo(seq1, seq2, _max_loop, _mv, _dv, _dntp, _dna, _temp_c, 1, 0, 4);
-            } else if (type.equals("END1")) {
-                return calcThermo(seq1, seq2, _max_loop, _mv, _dv, _dntp, _dna, _temp_c, 1, 0, 2);
-            } else if (type.equals("END2")) {
-                return calcThermo(seq1, seq2, _max_loop, _mv, _dv, _dntp, _dna, _temp_c, 1, 0, 3);
-            } else if (type.equals("ANY")) {
-                return calcThermo(seq1, seq2, _max_loop, _mv, _dv, _dntp, _dna, _temp_c, 1, 0, 1);
-            } else {
-                throw new RuntimeException("Unknown alignment type " + type);
-            }
+        if (type.equals("HAIRPIN")) {
+            _align_type = 4;
+        } else if (type.equals("END1")) {
+            _align_type = 2;
+        } else if (type.equals("END2")) {
+            _align_type = 3;
+        } else if (type.equals("ANY")) {
+            _align_type = 1;
+        } else {
+            throw new RuntimeException("Unknown alignment type " + type);
         }
+        setParams();
+        return calcThermo(seq1, seq2);
     }
 
     public double calcHairpinTm(String seq) {
-        synchronized (lock) {
-            return thal(seq, seq, "HAIRPIN");
-        }
+        return thal(seq, seq, "HAIRPIN");
     }
 
     public double calcHomodimerTm(String seq) {
@@ -157,7 +152,7 @@ public class Primer3Wrapper {
     public static void main(String[] args) throws Exception {
         Primer3Wrapper primer3 = new Primer3Wrapper(50.0, 1.5);
         if (args.length == 1) {
-            double tm = primer3.calcTemp(args[0]);
+            double tm = primer3.calcTm(args[0]);
             System.out.printf("%s %f\n", args[0], tm);
         } else if (args.length == 2) {
             double tm = primer3.calcHetrodimerTm(args[0], args[1]);
