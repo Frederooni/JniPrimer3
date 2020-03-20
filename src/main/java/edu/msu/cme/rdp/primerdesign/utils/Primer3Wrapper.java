@@ -37,6 +37,8 @@ public class Primer3Wrapper {
     private int _salt_method = 1; //
     private int _align_type = 1; // 1 = ANY, 2 = END1, 3 = END2, 4 = HAIRPIN
 
+    private static Object lock = new Object();
+
     public Primer3Wrapper() {
         setParams();
     }
@@ -46,13 +48,19 @@ public class Primer3Wrapper {
         this._dv = magnesDv;
     }
 
+    public void setParams(int maxLoop, double mv, double dv, double dntp, double dna_conc, double temp, int aligntype) {
+        synchronized (lock) {
+            setParamsNative(_max_loop, _mv, _dv, _dntp, _dna, _temp_c, _align_type);
+        }
+    }
+
     private void setParams() {
         setParams(_max_loop, _mv, _dv, _dntp, _dna, _temp_c, _align_type);
     }
 
     private native double calcTm(String seq);
 
-    private native double setParams(int maxLoop, double mv, double dv, double dntp, double dna_conc, double temp, int aligntype);
+    private native double setParamsNative(int maxLoop, double mv, double dv, double dntp, double dna_conc, double temp, int aligntype);
 
     private native double calcThermo(String seq1, String seq2);
 

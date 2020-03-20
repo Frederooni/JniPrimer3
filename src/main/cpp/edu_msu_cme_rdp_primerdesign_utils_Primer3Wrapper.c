@@ -2,8 +2,11 @@
 #include "oligotm.h"
 #include "thal.h"
 #include "thal_parameters.h"
+#include <stdio.h>
 
 static __thread int init_thermo_done = 0;
+static __thread int init_params_done = 0;
+static __thread thal_args a;
 
 static void init_thermo() {
     if (init_thermo_done) return;
@@ -15,11 +18,9 @@ static void init_thermo() {
     init_thermo_done = 1;
 }
 
-static __thread thal_args a;
-static __thread int init_params_done = 0;
-
 /** If parameters have not been set then set some reasonable defaults. */
 static void init_params() {
+    init_thermo();
     if (init_params_done) return;
     a.type = thal_any;
     a.maxLoop = 30;
@@ -35,6 +36,7 @@ static void init_params() {
 static void set_params(int maxloop, double mv,
                        double dv, double dntp, double dna_conc, double temp,
                        int aligntype) {
+    init_thermo();
     a.type = (thal_alignment_type) aligntype;
     a.maxLoop = maxloop;
     a.mv = mv;
@@ -46,20 +48,29 @@ static void set_params(int maxloop, double mv,
     init_params_done = 1;
 }
 
+static void check_init_params() {
+    if (!init_params_done || !init_thermo_done) {
+        fprintf(stderr, "\nJavaPrimer3: Parameters have not been set!\n\n");
+        exit(1);
+    }
+}
+
 JNIEXPORT jdouble JNICALL
 Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcTm(JNIEnv *env,jobject obj, jstring seq) {
   const char *sequence = (*env)->GetStringUTFChars(env, seq, 0);
-  if (!init_params_done) init_params();
+  check_init_params();
   double ret = oligotm(sequence, a.dna_conc, a.mv, a.dv, a.dntp, 1, 1);
   (*env)->ReleaseStringUTFChars(env, seq, sequence);
   return ret; 
 }
 
 JNIEXPORT void JNICALL
-Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_setParams(JNIEnv *env, jobject obj,
+Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_setParamsNative(JNIEnv *env, jobject obj,
         jint maxloop, jdouble mv, jdouble dv, jdouble dntp, jdouble dna_conc, jdouble temp,
         jint aligntype) {
+    // fprintf(stderr, "setParamsNative calling set_params\n");
     set_params(maxloop, mv, dv, dntp, dna_conc, temp, aligntype);
+    // fprintf(stderr, "setParamsNative done calling set_params\n");
 }
 
 JNIEXPORT jdouble JNICALL
@@ -69,11 +80,9 @@ Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_calcThermo(JNIEnv *env, j
     const char *sequence1 = (*env)->GetStringUTFChars(env, seq1, 0);
     const char *sequence2 = (*env)->GetStringUTFChars(env, seq2, 0);
 
-    if (!init_params_done) init_params();
+    check_init_params();
 
     thal_results o;
-
-    if (!init_thermo_done) init_thermo();
 
     // printf("thal(%s,%s,mv %g dv %g dntp %g dna %g temp %g dimer %d type %d,0,&o)\n", sequence1, sequence2, mv, dv, dntp, dna_conc, temp, dimer, aligntype);
     thal(sequence1, sequence2, &a, THL_FAST, &o);

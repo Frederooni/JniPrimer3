@@ -15,7 +15,7 @@ JNIEXPORT jdouble JNICALL Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper
         jstring);
 
 /** Calculate melting temperature for two primers. */
-JNIEXPORT void JNICALL Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_setParams(JNIEnv *, jobject,
+JNIEXPORT void JNICALL Java_edu_msu_cme_rdp_primerdesign_utils_Primer3Wrapper_setParamsNative(JNIEnv *, jobject,
         jint maxloop, jdouble mv, jdouble dv, jdouble dntp, jdouble dna_conc, jdouble temp, jint aligntype);
 
 /** Calculate melting temperature for two primers. */
