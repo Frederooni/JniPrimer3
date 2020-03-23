@@ -1,9 +1,26 @@
+// The Gradle build scripts in this project are based on:
+// https://github.com/vladsoroka/GradleJniSample
 
 plugins {
-    id 'jni-library'
+    id 'java-library'
+    id 'java-library-distribution'
+    // id 'maven'
+}
+
+distributions {
+    main {
+        distributionBaseName = 'my-name'
+    }
+    contents {
+        // from 'jni/build/lib/main/debug/libjni.so'
+    }
 }
 
 /*
+group 'org.example'
+version '1.0-SNAPSHOT'
+*/
+
 sourceCompatibility = 1.8
 
 repositories {
@@ -11,34 +28,26 @@ repositories {
 }
 
 dependencies {
-    testImplementation "junit:junit:4.12"
-}
-*/
-
-/*
- * There is currently no "C application" plugin, so this build uses the
- * "C++ application" plugin and then reconfigures it to build C instead.
- */
-
-import org.gradle.internal.jvm.Jvm
-
-library {
-    binaries.configureEach { CppBinary binary ->
-        def compileTask = binary.compileTask.get()
-
-        compileTask.source.from fileTree(dir: "src/main/cpp", include: "**/*.c")
-
-        def toolChain = binary.toolChain
-        if (toolChain instanceof VisualCpp) {
-            compileTask.compilerArgs.addAll(["/TC"])
-        } else if (toolChain instanceof GccCompatibleToolChain) {
-            compileTask.compilerArgs.addAll(["-x", "c", "-std=c11"])
-        }
-    }
+    // testImplementation "junit:junit:4.12"
+    // runtimeClasspath ':jni:linkDebug'
 }
 
 jar {
     manifest {
         attributes('Main-Class': 'edu.msu.cme.rdp.primerdesign.utils.Primer3Wrapper')
     }
+    dependsOn ':jni:linkDebug'
+}
+
+/*
+test {
+    systemProperty "java.library.path", file("${project(":jni").buildDir}/lib/main/debug").absolutePath
+}
+
+test.dependsOn ':jni:linkDebug'
+*/
+
+tasks.jar {
+    // from(library.developmentBinary.flatMap { (it as CppSharedLibrary).linkFile })
+
 }

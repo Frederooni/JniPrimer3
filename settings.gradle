@@ -1,2 +1,2 @@
-rootProject.name = 'JavaPrimer3'
-includeBuild 'jni-library-plugin'
+rootProject.name = 'JniPrimer3'
+include 'jni'
