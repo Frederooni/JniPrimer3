@@ -173,7 +173,7 @@ public class Primer3Wrapper {
 
     // Based on https://stackoverflow.com/a/1611367
     static {
-        String name = "/libJavaPrimer3.so";
+        String name = "/libJniPrimer3.so";
         try {
             InputStream in = Primer3Wrapper.class.getResourceAsStream(name);
             // long ms = System.currentTimeMillis;
@@ -181,9 +181,7 @@ public class Primer3Wrapper {
             OutputStream out = new FileOutputStream(file);
             byte[] buffer = new byte[1024];
             int c;
-            while ((c = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, c);
-            }
+            while ((c = in.read(buffer)) >= 0) out.write(buffer, 0, c);
             in.close();
             out.close();
             name = file.toString();
